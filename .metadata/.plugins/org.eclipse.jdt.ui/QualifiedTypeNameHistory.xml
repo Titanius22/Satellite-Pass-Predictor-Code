@@ -1,2 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<qualifiedTypeNameHistroy/>
+<qualifiedTypeNameHistroy>
+<fullyQualifiedTypeName name="Quick_Copy_Files.Autoconfiguration"/>
+<fullyQualifiedTypeName name="org.orekit.propagation.analytical.tle.TLE"/>
+<fullyQualifiedTypeName name="org.orekit.propagation.analytical.tle.TLEPropagator"/>
+<fullyQualifiedTypeName name="Quick_Copy_Files.AutoconfigurationCustom"/>
+<fullyQualifiedTypeName name="org.orekit.bodies.CelestialBody"/>
+<fullyQualifiedTypeName name="org.orekit.bodies.CelestialBodyFactory"/>
+<fullyQualifiedTypeName name="org.orekit.utils.TimeStampedPVCoordinates"/>
+</qualifiedTypeNameHistroy>

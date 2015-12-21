@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import java.util.Locale;
+
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 import org.apache.commons.math3.util.FastMath;
 import org.orekit.bodies.BodyShape;
@@ -23,19 +25,25 @@ import org.orekit.bodies.CelestialBodyFactory;
 import org.orekit.bodies.GeodeticPoint;
 import org.orekit.bodies.OneAxisEllipsoid;
 import org.orekit.errors.OrekitException;
+import org.orekit.errors.PropagationException;
 import org.orekit.frames.Frame;
 import org.orekit.frames.FramesFactory;
 import org.orekit.frames.TopocentricFrame;
 import org.orekit.orbits.KeplerianOrbit;
 import org.orekit.orbits.Orbit;
+import org.orekit.orbits.OrbitType;
 import org.orekit.propagation.Propagator;
 import org.orekit.propagation.SpacecraftState;
 import org.orekit.propagation.analytical.KeplerianPropagator;
 import org.orekit.propagation.analytical.tle.TLE;
 import org.orekit.propagation.analytical.tle.TLEPropagator;
+import org.orekit.propagation.events.EclipseDetector;
 import org.orekit.propagation.events.ElevationDetector;
 import org.orekit.propagation.events.EventDetector;
 import org.orekit.propagation.events.handlers.EventHandler;
+import org.orekit.propagation.sampling.OrekitFixedStepHandler;
+import org.orekit.propagation.sampling.OrekitStepHandler;
+import org.orekit.propagation.sampling.OrekitStepInterpolator;
 import org.orekit.time.AbsoluteDate;
 import org.orekit.time.TimeScalesFactory;
 import org.orekit.utils.Constants;
@@ -51,100 +59,142 @@ import Quick_Copy_Files.AutoconfigurationCustom;
 public class Tester2 {
 	
 	static CelestialBody sun;
-	static double nightTimeAngle;
-	static double centerStationRadius;
+	static CelestialBody earth;
+	static Frame earthFrame;
+	/////Consider deleting/////static double nightTimeAngle;
+	/////Consider deleting/////static double centerStationRadius;
+	static Propagator TLEProp;
+	static TopocentricFrame groundstationFrame;
 
     /** Program entry point.
      * @param args program arguments (unused here)
      */
     public static void main(String[] args) {
         try {       	
-        	String line1 = "1 25544U 98067A   15352.16254196  .00015510  00000-0  23433-3 0  9990";
-            String line2 = "2 25544  51.6438 245.9260 0008096 292.2441 158.1233 15.54884251976664";
+        	String line7 = "1 25544U 98067A   15352.16254196  .00015510  00000-0  23433-3 0  9990";
+            String line8 = "2 25544  51.6438 245.9260 0008096 292.2441 158.1233 15.54884251976664";
             
             // configure Orekit
         	AutoconfigurationCustom.configureOrekit();
         	
         	//SUNLocation
 			sun  = CelestialBodyFactory.getSun();
+			earth = CelestialBodyFactory.getEarth();
 
             //  Initial state definition : date, orbit
             AbsoluteDate targetDate = new AbsoluteDate(2015, 12, 18, 0, 0, 01.000, TimeScalesFactory.getUTC());
             targetDate = targetDate.shiftedBy(3600*48);
             
+            /////Consider deleting/////Vector3D sunPos = sun.getPVCoordinates(targetDate, this.earthFrame).getPosition();
+            /////Consider deleting/////nightTimeAngle = FastMath.PI/2 + FastMath.asin((Constants.SUN_RADIUS)/(sunPos.getNorm()));
             
             
-            Vector3D sunPos = sun.getPVCoordinates(targetDate, FramesFactory.getITRF(IERSConventions.IERS_2010, true)).getPosition();
-            nightTimeAngle = FastMath.PI/2 + FastMath.asin((Constants.SUN_RADIUS)/(sunPos.getNorm()));
-            //nightTimeAngle = Math.asin((696300000)/(sunPos.getNorm()));
-            
-            //  Initial TLE orbit data
-            TLE TLEdata = new TLE(line1, line2);
-            
-            // Propagator : using TLE elements
-            Propagator TLEProp = TLEPropagator.selectExtrapolator(TLEdata);
             
             //*******************************************************************************************
             //                          will be part of constructor                                     *
-            // Earth and frame                                                                          *
-            Frame earthFrame = FramesFactory.getITRF(IERSConventions.IERS_2010, true);
-            BodyShape earth = new OneAxisEllipsoid(Constants.WGS84_EARTH_EQUATORIAL_RADIUS,
-                                                   Constants.WGS84_EARTH_FLATTENING,
-                                                   earthFrame);
-
-            // Station                                                                                   *
-            final double radLongitude = FastMath.toRadians(-81.503333);
-            final double radLatitude  = FastMath.toRadians(27.594444);
-            final double altitude  = 0;
-            final GeodeticPoint station1 = new GeodeticPoint(radLatitude, radLongitude, altitude);
-            final TopocentricFrame sta1Frame = new TopocentricFrame(earth, station1, "station1");
-            centerStationRadius = sta1Frame.getRange(new Vector3D(0,0,0), earthFrame, targetDate);
-
             // Event definition                                                                          *
             final double maxcheck  = 60.0;
             final double threshold =  0.001;
             final double elevation = FastMath.toRadians(10.0);
             final EventDetector sta1Visi =
-                    new ElevationDetector(maxcheck, threshold, sta1Frame).
+                    new ElevationDetector(maxcheck, threshold, groundstationFrame).
                     withConstantElevation(elevation).
                     withHandler(new VisibilityHandler());
             //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             //                                     will be part of constructor                           *
 
-            // Add event to be detected
+            // Add Elevation detector
             TLEProp.addEventDetector(sta1Visi);
+            
+//            // Add Elevation detector
+//            final EventDetector thing = 
+//            		new EclipseDetector(sun, Constants.SUN_RADIUS, earth, Constants.WGS84_EARTH_EQUATORIAL_RADIUS).
+//            		withHandler(new DarknessHandler()).
+//            		withUmbra();
+//            TLEProp.addEventDetector(thing);
+            
+
+            //TLEProp.setMasterMode(new TutorialStepHandler());
+            
 
             // Propagate from the initial date to the first raising or for the fixed duration
             SpacecraftState finalState = TLEProp.propagate(targetDate);
 
             System.out.println(" Final state : " + finalState.getDate().durationFrom(targetDate));
-
+            
         } catch (OrekitException oe) {
         	System.err.println(oe.getMessage());
         }
     }
+    
+    public Tester2(String line1, String line2, CelestialBody sun, CelestialBody earth, double latitude, double longitude, double altitude){
+    	
+        try {
+        	// Initial TLE orbit data
+			TLE TLEdata = new TLE(line1, line2);
+			
+			// Propagator : using TLE elements
+	        this.TLEProp = TLEPropagator.selectExtrapolator(TLEdata);
+	        
+	        // Define bodies
+	        this.sun = sun;
+	        this.earth = earth;
+	        this.earthFrame = FramesFactory.getITRF(IERSConventions.IERS_2010, true);
+	        
+	        // Set the Ground Station location
+	        SetGSLocation(latitude,  longitude, altitude);
+	        
+		} catch (OrekitException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    }
+    
+    public static boolean QuickCheck(double latitude, double longitude, double altitude){
+    	// Station                                                                                   *
+        final double radLongitude = FastMath.toRadians(longitude);
+        final double radLatitude  = FastMath.toRadians(latitude);
+    	
+    	
+    	
+    	
+    	return true;
+    }
 
+    public void SetGSLocation(double longitude, double latitude, double altitude){
+    	BodyShape earthBody = new OneAxisEllipsoid(Constants.WGS84_EARTH_EQUATORIAL_RADIUS,
+		                                       Constants.WGS84_EARTH_FLATTENING,
+		                                       this.earthFrame);
+
+		// Station                                                                                   
+		final double radLongitude = FastMath.toRadians(longitude);
+		final double radLatitude  = FastMath.toRadians(latitude);
+		final GeodeticPoint station1 = new GeodeticPoint(radLatitude, radLongitude, altitude);
+		groundstationFrame = new TopocentricFrame(earthBody, station1, "station1");
+    }
+    
     /** Handler for visibility event. */
-    private static class VisibilityHandler implements EventHandler<ElevationDetector> {
+    private class VisibilityHandler implements EventHandler<ElevationDetector> {
 
         public Action eventOccurred(final SpacecraftState s, final ElevationDetector detector,
                                     final boolean increasing) {
+            //System.out.println("\t\t\t" + s.getDate());
+        	
+            System.out.println(isNightTime(s, detector) + " It is dark on Earth");
             if (increasing) {
                 if(true){//isNightTime(s)){
                 	System.out.println(" Visibility on " + detector.getTopocentricFrame().getName()
-                                                     + " begins at " + s.getDate().shiftedBy(-3600*5));
-                	try{
-                		System.out.println("\t" + FastMath.toDegrees(detector.getTopocentricFrame().getAzimuth(s.getPVCoordinates().getPosition(), s.getFrame(), s.getDate())));
-                	}catch (OrekitException oe){
-                		System.out.println("FAILED");
-                	}
-                	
-                
+                                                     + " begins at " + s.getDate().shiftedBy(-3600*8));
+//                	try{
+//                		System.out.println("\t" + FastMath.toDegrees(detector.getTopocentricFrame().getAzimuth(s.getPVCoordinates().getPosition(), s.getFrame(), s.getDate())));
+//                	}catch (OrekitException oe){
+//                		System.out.println("FAILED");
+//                	}
                 }
                 return Action.CONTINUE;
             } else {
                 System.out.println(" Visibility on " + detector.getTopocentricFrame().getName()
-                                                     + " ends at " + s.getDate().shiftedBy(-3600*5));
+                                                     + " ends at " + s.getDate().shiftedBy(-3600*8));
                 //return Action.STOP;
                 return Action.CONTINUE;
             }
@@ -155,26 +205,71 @@ public class Tester2 {
         }
     }
 
-    private static boolean isNightTime(final SpacecraftState s){
+    private static class DarknessHandler implements EventHandler<EclipseDetector> {
+                
+        public Action eventOccurred(final SpacecraftState s, final EclipseDetector detector, final boolean increasing) {
+    		if (increasing) {
+            	System.out.println("Into Full Eclipse Darkness " + s.getDate() + " --------------------------------------");
+    			//output.add(s.getDate() + ": switching to day-night rdv 1 law");
+                //System.out.println("# " + (s.getDate().durationFrom(AbsoluteDate.J2000_EPOCH) / Constants.JULIAN_DAY) + " eclipse-entry day-night-rdv1-mode");
+                //endDayNightRdV1Event_increase.addEventDate(s.getDate().shiftedBy(40));
+                //endDayNightRdV1Event_decrease.addEventDate(s.getDate().shiftedBy(40));
+            }
+    		else {
+    			System.out.println("Leaving Full Eclipse Darkness " + s.getDate() + " +++++++++++++++++++++++++++++++++++");
+    		}
+    		return Action.CONTINUE;
+        }
+        
+        public SpacecraftState resetState(EclipseDetector detector, SpacecraftState oldState) {
+        	return oldState;
+        }
+    }
+
+    private static class TutorialStepHandler implements OrekitStepHandler {
+
+        private TutorialStepHandler() {
+            //private constructor
+        }
+
+        public void init(final SpacecraftState s0, final AbsoluteDate t) {
+            System.out.println("          date                a           e" +
+                               "           i         \u03c9          \u03a9" +
+                               "          \u03bd");
+        }
+
+		public void handleStep(OrekitStepInterpolator o, boolean isLast)
+				throws PropagationException {
+			System.out.println("\t\t\t" + (o.getCurrentDate().durationFrom(o.getPreviousDate())));
+			
+		}
+    }
+    
+    private boolean isNightTime(final SpacecraftState s, ElevationDetector detector){  
     	Vector3D curSunPos;
 		try {
-			curSunPos = sun.getPVCoordinates(s.getPVCoordinates().getDate(), FramesFactory.getITRF(IERSConventions.IERS_2010, true)).getPosition();
-			Vector3D curSatPos = s.getPVCoordinates(FramesFactory.getITRF(IERSConventions.IERS_2010, true)).getPosition();		
-	    	double angle = Vector3D.dotProduct(curSunPos, curSatPos) / (curSunPos.getNorm()*curSatPos.getNorm());
-	    	if(angle < 0){angle = FastMath.PI - angle;}
-	    	//System.out.println("the DarkAngle is " + nightTimeAngle);
+			// origin is the center of the Earth
+			curSunPos = sun.getPVCoordinates(s.getDate(), this.earthFrame).getPosition();
+			Vector3D curSatPos = s.getPVCoordinates(this.earthFrame).getPosition();		
+	    	
+			// origin has been offset to the ground station
+			Vector3D stationToSun = curSunPos.subtract(curSatPos);
+	    	Vector3D stationZenith =  detector.getTopocentricFrame().getZenith();
+	    			
+	    	double angle = Vector3D.angle(stationToSun, stationZenith); // Sun center to station to zenith
+	    	double sunAngleRadius = FastMath.atan(Constants.SUN_RADIUS/stationToSun.getNorm());
+	    	//System.out.println("\nthe DarkAngle is " + nightTimeAngle);
 	    	//System.out.println("the angle is " + angle);
 	    	
-	    	return angle > nightTimeAngle;
+	    	return angle-sunAngleRadius > Math.PI/2;
 		} catch (OrekitException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.out.println("This broke");
 			return false;
-		}    	
+		} 
     	
     }
-
 
     private static double[] Convert_To_Lat_Long(Vector3D posVec){
     	double Xcomp = posVec.getX();

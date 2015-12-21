@@ -7,4 +7,6 @@
 <fullyQualifiedTypeName name="org.orekit.bodies.CelestialBody"/>
 <fullyQualifiedTypeName name="org.orekit.bodies.CelestialBodyFactory"/>
 <fullyQualifiedTypeName name="org.orekit.utils.TimeStampedPVCoordinates"/>
+<fullyQualifiedTypeName name="org.orekit.propagation.sampling.OrekitStepHandler"/>
+<fullyQualifiedTypeName name="org.orekit.propagation.events.EclipseDetector"/>
 </qualifiedTypeNameHistroy>

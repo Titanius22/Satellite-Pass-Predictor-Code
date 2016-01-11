@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 import org.apache.commons.math3.util.FastMath;
@@ -69,15 +72,15 @@ public class Tester2 {
 	boolean groundIsDark;
 	Vector3D stationPos;
 	
-
+	
     public static void main(String[] args) {
         try {       	
-        	String line7 = "1 25544U 98067A   15362.76999380  .00006937  00000-0  10784-3 0  999";
-            String line8 = "2 25544  51.6431 192.9742 0008220 335.8747 136.0764 15.55153612978314";
+        	String line7 = "1 25544U 98067A   16003.88353887  .00008341  00000-0  12778-3 0  9994";
+            String line8 = "2 25544  51.6424 162.4509 0008302 358.1918 164.3460 15.55244436979265";
             
-            double latitude = -26.204444;
-            double longitude = 28.045556;
-            double altitude = 1753;
+            double latitude = 36.211389;
+            double longitude = -81.668611;
+            double altitude = 1016;
             
             // configure Orekit
         	AutoconfigurationCustom.configureOrekit();
@@ -85,11 +88,26 @@ public class Tester2 {
         	//SUNLocation
         	CelestialBody testSun  = CelestialBodyFactory.getSun();
         	CelestialBody testEarth = CelestialBodyFactory.getEarth();
+        	
+        	// Get UTC time
+        	SimpleDateFormat sdf = new SimpleDateFormat("yyyy,MM,dd,HH,mm,ss");
+            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            String[] utcTime = sdf.format(new Date()).split(",");
 
-            //  Initial state definition : date, orbit
-            AbsoluteDate targetDate = new AbsoluteDate(2015, 12, 31, 21, 0, 00.000, TimeScalesFactory.getUTC());
+            // Gets times and date
+            double futureDayProp = 3; // duration in 24-hour day 
+            //AbsoluteDate currentDate = new AbsoluteDate(2016, 1, 1, 23, 50, 0.000, TimeScalesFactory.getUTC());
+            AbsoluteDate currentDate = new AbsoluteDate(Integer.parseInt(utcTime[0]),
+            											Integer.parseInt(utcTime[1]), 
+            											Integer.parseInt(utcTime[2]), 
+            											Integer.parseInt(utcTime[3]), 
+            											Integer.parseInt(utcTime[4]), 
+            											Integer.parseInt(utcTime[5]), 
+            											TimeScalesFactory.getUTC());
             
-            Tester2 awesome = new Tester2(line7, line8, testSun, testEarth, latitude, longitude, altitude, targetDate);
+            
+            
+            Tester2 awesome = new Tester2(line7, line8, testSun, testEarth, latitude, longitude, altitude, currentDate.shiftedBy(futureDayProp*24*3600));//targetDate.shiftedBy(3*24*3600));
             awesome.QuickCheck();
             
             System.out.println("done");
@@ -155,7 +173,7 @@ public class Tester2 {
         // Add Eclipse Detector
         this.TLEProp.addEventDetector(thing);
       
-        this.TLEProp.setMasterMode(new TutorialStepHandler());
+        this.TLEProp.setMasterMode(new quickCheckStepHandler());
         
         try {
 			this.TLEProp.propagate(this.FinalPropDate);
@@ -208,7 +226,7 @@ public class Tester2 {
 	    	// angle required for darkness measured from observer's zenith
 	    	double darkAngle = Math.PI/2 + Math.toRadians(4.5);
 	    	
-	    	System.out.println("--------------------------------- " + sunAngle + " >= " + darkAngle);
+	    	//System.out.println("--------------------------------- " + sunAngle + " >= " + darkAngle);
 	    	return sunAngle >= darkAngle;
 		} catch (OrekitException e) {
 			// TODO Auto-generated catch block
@@ -261,19 +279,18 @@ public class Tester2 {
     }
     
     /** Handler for visibility event. */
-    
     // Triggers when minimum elevation is achieved
     private class VisibilityHandler implements EventHandler<ElevationDetector> {
 
         public Action eventOccurred(final SpacecraftState s, final ElevationDetector detector,
                                     final boolean increasing) {
             //System.out.println("\t\t\t" + s.getDate());
-        	
+        	System.out.println("VisibilityHandler");
             //System.out.println(isNightTime(s, detector) + " It is dark on Earth");
             if (increasing) {
             	Tester2.this.satIsHigh = true;
-            	System.out.print(" Visibility on " + detector.getTopocentricFrame().getName()
-            										 + " begins at " + s.getDate());
+            	////////////////////////System.out.print(" Visibility on " + detector.getTopocentricFrame().getName()
+            										///////////////// + " begins at " + s.getDate());
                if(true){//isNightTime(s)){
                 	try{
                 		System.out.println("\t" + FastMath.toDegrees(detector.getTopocentricFrame().getAzimuth(s.getPVCoordinates().getPosition(), s.getFrame(), s.getDate())));
@@ -298,10 +315,11 @@ public class Tester2 {
     private class DarknessHandler implements EventHandler<EclipseDetector> {
                 
         public Action eventOccurred(final SpacecraftState s, final EclipseDetector detector, final boolean increasing) {
-        	System.out.println("DarknessHandler works");
+        	System.out.println("DarknessHandler");
+        	//System.out.println("DarknessHandler works");
         	if (increasing) {
     			Tester2.this.satIsBright = false;
-    			System.out.println("Into Full Eclipse Darkness " + s.getDate() + " --------------------------------------");
+    			//System.out.println("Into Full Eclipse Darkness " + s.getDate() + " --------------------------------------");
     			//output.add(s.getDate() + ": switching to day-night rdv 1 law");
                 //System.out.println("# " + (s.getDate().durationFrom(AbsoluteDate.J2000_EPOCH) / Constants.JULIAN_DAY) + " eclipse-entry day-night-rdv1-mode");
                 //endDayNightRdV1Event_increase.addEventDate(s.getDate().shiftedBy(40));
@@ -309,7 +327,7 @@ public class Tester2 {
             }
     		else {
     			Tester2.this.satIsBright = true;
-    			System.out.println("Leaving Full Eclipse Darkness " + s.getDate() + " +++++++++++++++++++++++++++++++++++");
+    			//System.out.println("Leaving Full Eclipse Darkness " + s.getDate() + " +++++++++++++++++++++++++++++++++++");
     		}
     		return Action.CONTINUE;
         }
@@ -319,7 +337,7 @@ public class Tester2 {
         }
     }
 
-    private class TutorialStepHandler implements OrekitStepHandler {
+    private class quickCheckStepHandler implements OrekitStepHandler {
 
         public void init(final SpacecraftState s0, final AbsoluteDate t) {
           //System.out.println("          date                a           e" +
@@ -328,14 +346,15 @@ public class Tester2 {
         }
 
 		public void handleStep(OrekitStepInterpolator o, boolean isLast) throws PropagationException {
+			System.out.println("\n-stephandler");
 			//System.out.println("\t\t\t" + (o.getCurrentDate().durationFrom(o.getPreviousDate())));
 			if(Tester2.this.satIsBright && Tester2.this.satIsHigh){
 				try {
 					if(isNightTime(o.getInterpolatedState())){
 						Tester2.this.groundIsDark = true;
-						System.out.println("Visible on " + o.getCurrentDate().shiftedBy(3600*2));
+						////////////////////////////////////////////System.out.println("Visible on " + o.getCurrentDate().shiftedBy(+3600*-5));
 					} else{
-						System.out.println("--------------------------------not night");
+						//System.out.println("--------------------------------not night");
 						Tester2.this.groundIsDark = false;
 					}
 				} catch (OrekitException e) {

@@ -9,4 +9,7 @@
 <fullyQualifiedTypeName name="org.orekit.utils.TimeStampedPVCoordinates"/>
 <fullyQualifiedTypeName name="org.orekit.propagation.sampling.OrekitStepHandler"/>
 <fullyQualifiedTypeName name="org.orekit.propagation.events.EclipseDetector"/>
+<fullyQualifiedTypeName name="java.text.SimpleDateFormat"/>
+<fullyQualifiedTypeName name="java.util.TimeZone"/>
+<fullyQualifiedTypeName name="java.util.Date"/>
 </qualifiedTypeNameHistroy>
